@@ -4,6 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="build/MacSweep.app"
+VERSION="1.0.0"
+BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 swift build -c release
 
 rm -rf "$APP"
@@ -22,8 +24,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>MacSweep</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleShortVersionString</key><string>$VERSION</string>
+    <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>NSHighResolutionCapable</key><true/>
@@ -42,4 +44,9 @@ else
     echo "No \"$IDENTITY\" signing identity found; signing ad-hoc (Full Disk Access must be re-granted after each build)."
     codesign --force --deep --sign - "$APP"
 fi
-echo "Built $PWD/$APP"
+# Zip for distribution (ditto keeps the code signature and extended attributes intact).
+ZIP="build/MacSweep-$VERSION.zip"
+rm -f "$ZIP"
+ditto -c -k --keepParent "$APP" "$ZIP"
+echo "Built $PWD/$APP (version $VERSION, build $BUILD_NUMBER)"
+echo "Packaged $PWD/$ZIP"

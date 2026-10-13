@@ -60,23 +60,29 @@ struct TrashView: View {
     @EnvironmentObject var model: TrashModel
     @State private var confirm = false
 
+    private var isReading: Bool { model.isWorking && !model.isEmptying }
+
     var body: some View {
         VStack(spacing: 0) {
             PaneHeader(title: "Trash Bins", subtitle: "Reclaim the space used by files you already deleted.",
                        icon: "trash.fill", tint: Pane.trash.tint) {
-                if model.isWorking && !model.isEmptying {
-                    ProgressView().controlSize(.small)
-                    Text("Measuring…").font(.caption).foregroundStyle(.secondary)
-                }
                 Button { Task { await model.refresh() } } label: { Image(systemName: "arrow.clockwise") }
                     .disabled(model.isWorking || model.isEmptying)
             }
-            if model.accessDenied { FullDiskAccessHint() }
+            if model.accessDenied && !isReading { FullDiskAccessHint() }
 
             VStack(spacing: 16) {
                 Image(systemName: model.itemCount == 0 && !model.accessDenied ? "trash" : "trash.fill")
-                    .font(.system(size: 80)).foregroundStyle(.green.gradient)
-                if model.accessDenied {
+                    .font(.system(size: 80)).foregroundStyle(Pane.trash.tint.gradient)
+                    .symbolEffect(.pulse, isActive: isReading || model.isEmptying)
+                if isReading {
+                    // Keep the layout steady while the size is being measured.
+                    VStack(spacing: 8) {
+                        ProgressView().controlSize(.large)
+                        Text("Reading the Trash…").foregroundStyle(.secondary)
+                    }
+                    .frame(height: 76)
+                } else if model.accessDenied {
                     Text("Size unknown").font(.largeTitle.bold())
                 } else {
                     Text(FileUtils.format(model.size)).font(.system(size: 44, weight: .bold)).monospacedDigit()
@@ -91,7 +97,7 @@ struct TrashView: View {
                 } else {
                     Button("Empty Trash") { confirm = true }
                         .buttonStyle(.borderedProminent).tint(.green).controlSize(.large)
-                        .disabled(model.isWorking || (model.itemCount == 0 && !model.accessDenied))
+                        .disabled(isReading || (model.itemCount == 0 && !model.accessDenied))
                 }
                 if let message = model.message, !model.isEmptying {
                     Text(message).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
