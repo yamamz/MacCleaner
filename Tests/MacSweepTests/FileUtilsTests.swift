@@ -26,6 +26,30 @@ final class FileUtilsTests: XCTestCase {
         XCTAssertEqual(FileUtils.size(of: temp.url.appendingPathComponent("scan")), 0)
     }
 
+    func testMeasureRecordsNestedFolderTotals() throws {
+        let temp = try TempDir()
+        let a = try temp.file("root/a/x.bin", bytes: 8192)
+        let b = try temp.file("root/a/deep/1/2/3/y.bin", bytes: 8192)
+        let c = try temp.file("root/c.bin", bytes: 8192)
+        let root = temp.url.appendingPathComponent("root")
+        var children: [String: Int64] = [:]
+        let result = FileUtils.measure(root, recordDepth: 2) { children[($0 as NSString).lastPathComponent] = $1 }
+
+        let expectedA = FileUtils.size(of: a) + FileUtils.size(of: b)
+        XCTAssertEqual(result.size, expectedA + FileUtils.size(of: c))
+        XCTAssertEqual(children, ["a": expectedA], "onChild reports direct subfolders only")
+        XCTAssertEqual(result.directories.count, 2, "a and a/deep are within recordDepth")
+        XCTAssertEqual(result.directories.first { $0.key.hasSuffix("/a/deep") }?.value, FileUtils.size(of: b))
+    }
+
+    func testMeasureUsesKnownSizes() throws {
+        let temp = try TempDir()
+        try temp.file("root/a/x.bin", bytes: 8192)
+        let root = temp.url.appendingPathComponent("root")
+        let result = FileUtils.measure(root, known: [root.path + "/a": 42])
+        XCTAssertEqual(result.size, 42)
+    }
+
     func testSizeOfMissingPathIsZero() {
         XCTAssertEqual(FileUtils.size(of: URL(fileURLWithPath: "/definitely/not/here")), 0)
     }

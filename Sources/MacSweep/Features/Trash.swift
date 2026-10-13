@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 @MainActor
@@ -6,6 +7,7 @@ final class TrashModel: ObservableObject {
     @Published var itemCount = 0
     @Published var accessDenied = false
     @Published var isWorking = false
+    @Published var isEmptying = false
     @Published var message: String?
 
     private let trashURL = FileUtils.home.appendingPathComponent(".Trash")
@@ -14,7 +16,14 @@ final class TrashModel: ObservableObject {
         isWorking = true
         let url = trashURL
         let (count, size, denied) = await Task.detached { () -> (Int, Int64, Bool) in
-            guard let items = try? FileUtils.children(of: url, includeHidden: true) else { return (0, 0, true) }
+            let items: [URL]
+            do {
+                items = try FileUtils.children(of: url, includeHidden: true)
+            } catch {
+                Logger(subsystem: "com.macsweep.app", category: "trash")
+                    .error("Cannot read Trash: \(String(describing: error), privacy: .public)")
+                return (0, 0, true)
+            }
             let visible = items.filter { $0.lastPathComponent != ".DS_Store" }
             return (visible.count, visible.reduce(0) { $0 + FileUtils.size(of: $1) }, false)
         }.value
@@ -26,7 +35,10 @@ final class TrashModel: ObservableObject {
 
     /// Asks Finder to empty the Trash (macOS will request Automation permission the first time).
     func empty() async {
-        isWorking = true
+        guard !isEmptying else { return }
+        isEmptying = true
+        message = nil
+        defer { isEmptying = false }
         let status = await Task.detached { () -> Int32 in
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
@@ -47,7 +59,12 @@ struct TrashView: View {
         VStack(spacing: 0) {
             PaneHeader(title: "Trash Bins", subtitle: "Reclaim the space used by files you already deleted.",
                        icon: "trash.fill", tint: .green) {
+                if model.isWorking && !model.isEmptying {
+                    ProgressView().controlSize(.small)
+                    Text("Measuring…").font(.caption).foregroundStyle(.secondary)
+                }
                 Button { Task { await model.refresh() } } label: { Image(systemName: "arrow.clockwise") }
+                    .disabled(model.isWorking || model.isEmptying)
             }
             if model.accessDenied { FullDiskAccessHint() }
 
@@ -60,10 +77,18 @@ struct TrashView: View {
                     Text(FileUtils.format(model.size)).font(.system(size: 44, weight: .bold)).monospacedDigit()
                     Text("\(model.itemCount) items in Trash").foregroundStyle(.secondary)
                 }
-                Button("Empty Trash") { confirm = true }
-                    .buttonStyle(.borderedProminent).tint(.green).controlSize(.large)
-                    .disabled(model.isWorking || (model.itemCount == 0 && !model.accessDenied))
-                if let message = model.message {
+                if model.isEmptying {
+                    HStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text("Emptying the Trash…").foregroundStyle(.secondary)
+                    }
+                    .frame(height: 32)
+                } else {
+                    Button("Empty Trash") { confirm = true }
+                        .buttonStyle(.borderedProminent).tint(.green).controlSize(.large)
+                        .disabled(model.isWorking || (model.itemCount == 0 && !model.accessDenied))
+                }
+                if let message = model.message, !model.isEmptying {
                     Text(message).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 }
             }

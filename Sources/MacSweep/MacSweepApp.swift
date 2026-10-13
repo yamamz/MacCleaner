@@ -18,15 +18,31 @@ enum Pane: String, CaseIterable, Identifiable, Hashable {
     var icon: String {
         switch self {
         case .smartScan: "sparkles"
-        case .junk: "trash.circle"
-        case .largeFiles: "doc.on.doc"
-        case .duplicates: "square.on.square"
-        case .spaceLens: "circle.hexagongrid"
-        case .trash: "trash"
-        case .uninstaller: "xmark.app"
+        case .junk: "bubbles.and.sparkles.fill"
+        case .largeFiles: "doc.on.doc.fill"
+        case .duplicates: "square.fill.on.square.fill"
+        case .spaceLens: "circle.hexagongrid.fill"
+        case .trash: "trash.fill"
+        case .uninstaller: "xmark.app.fill"
         case .optimization: "slider.horizontal.3"
-        case .maintenance: "wrench.and.screwdriver"
+        case .maintenance: "wrench.and.screwdriver.fill"
         case .monitor: "gauge.with.dots.needle.67percent"
+        }
+    }
+
+    /// Matches the accent each screen uses in its header.
+    var tint: Color {
+        switch self {
+        case .smartScan: .purple
+        case .junk: .pink
+        case .largeFiles: .orange
+        case .duplicates: .teal
+        case .spaceLens: .indigo
+        case .trash: .green
+        case .uninstaller: .blue
+        case .optimization: .purple
+        case .maintenance: .brown
+        case .monitor: .cyan
         }
     }
 }
@@ -91,6 +107,7 @@ struct MacSweepApp: App {
 }
 
 struct ContentView: View {
+    @EnvironmentObject var monitor: MonitorModel
     @State private var pane: Pane? = .smartScan
 
     var body: some View {
@@ -102,7 +119,9 @@ struct ContentView: View {
                 Section("Applications") { ForEach([Pane.uninstaller, .optimization]) { row($0) } }
                 Section("Performance") { ForEach([Pane.maintenance, .monitor]) { row($0) } }
             }
-            .navigationSplitViewColumnWidth(min: 190, ideal: 210)
+            .safeAreaInset(edge: .top, spacing: 0) { brand }
+            .safeAreaInset(edge: .bottom, spacing: 0) { storageMeter }
+            .navigationSplitViewColumnWidth(min: 200, ideal: 220)
         } detail: {
             switch pane ?? .smartScan {
             case .smartScan: SmartScanView(pane: $pane)
@@ -119,8 +138,52 @@ struct ContentView: View {
         }
     }
 
+    /// Colored rounded-square icon tiles, like System Settings.
     private func row(_ p: Pane) -> some View {
-        Label(p.rawValue, systemImage: p.icon).tag(p)
+        Label {
+            Text(p.rawValue)
+        } icon: {
+            Image(systemName: p.icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(p.tint.gradient, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .shadow(color: p.tint.opacity(0.35), radius: 2, y: 1)
+        }
+        .padding(.vertical, 2)
+        .tag(p)
+    }
+
+    private var brand: some View {
+        HStack(spacing: 10) {
+            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 34, height: 34)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("MacSweep").font(.headline)
+                Text("Keep your Mac fresh").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    private var storageMeter: some View {
+        let used = Double(monitor.diskUsed) / Double(max(monitor.diskTotal, 1))
+        let tint: Color = used > 0.9 ? .red : used > 0.75 ? .orange : .green
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: "internaldrive.fill").foregroundStyle(.secondary)
+                Text("Macintosh HD").font(.caption.weight(.semibold))
+                Spacer()
+                Text("\(Int(used * 100))%").font(.caption).monospacedDigit().foregroundStyle(.secondary)
+            }
+            ProgressView(value: min(max(used, 0), 1)).tint(tint)
+            Text("\(FileUtils.format(monitor.diskTotal - monitor.diskUsed)) available")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(12)
     }
 }
 

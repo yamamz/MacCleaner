@@ -14,6 +14,8 @@ struct PaneHeader<Trailing: View>: View {
                 .foregroundStyle(.white)
                 .frame(width: 52, height: 52)
                 .background(tint.gradient, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.25)))
+                .shadow(color: tint.opacity(0.4), radius: 6, y: 3)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.title2.bold())
                 Text(subtitle).font(.callout).foregroundStyle(.secondary)
@@ -67,7 +69,7 @@ struct FullDiskAccessHint: View {
     var body: some View {
         HStack {
             Image(systemName: "lock.shield").foregroundStyle(.orange)
-            Text("Some locations need Full Disk Access to scan.")
+            Text("Some locations need Full Disk Access to scan. After granting it, quit and reopen MacSweep.")
                 .font(.callout)
             Spacer()
             Button("Open Settings") { FileUtils.openFullDiskAccessSettings() }
