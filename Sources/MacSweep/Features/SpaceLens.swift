@@ -145,7 +145,7 @@ struct SpaceLensView: View {
     var body: some View {
         VStack(spacing: 0) {
             PaneHeader(title: "Space Lens", subtitle: "See what's taking up space, folder by folder.",
-                       icon: "circle.hexagongrid.fill", tint: .indigo) {
+                       icon: "circle.hexagongrid.fill", tint: Pane.spaceLens.tint) {
                 if model.isLoading && !model.entries.isEmpty {
                     ProgressView().controlSize(.small)
                     Text("Measuring…").font(.caption).foregroundStyle(.secondary)

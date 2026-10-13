@@ -176,7 +176,7 @@ struct DuplicatesView: View {
                        subtitle: model.hasScanned
                            ? "\(model.groups.count) sets · \(FileUtils.format(model.wastedTotal)) wasted"
                            : "Find identical files, verified byte-for-byte with SHA-256.",
-                       icon: "square.on.square.fill", tint: .teal) {
+                       icon: "square.on.square.fill", tint: Pane.duplicates.tint) {
                 if model.isScanning {
                     ProgressView().controlSize(.small)
                     Text(model.status).font(.caption).foregroundStyle(.secondary)

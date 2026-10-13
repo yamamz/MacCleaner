@@ -95,7 +95,7 @@ struct MaintenanceView: View {
     var body: some View {
         VStack(spacing: 0) {
             PaneHeader(title: "Maintenance", subtitle: "Routine fixes that keep macOS running smoothly.",
-                       icon: "wrench.and.screwdriver.fill", tint: .brown) {
+                       icon: "wrench.and.screwdriver.fill", tint: Pane.maintenance.tint) {
                 if model.isRunning { ProgressView().controlSize(.small) }
                 Button("Run \(model.selected.count) Task\(model.selected.count == 1 ? "" : "s")") {
                     Task { await model.runSelected() }

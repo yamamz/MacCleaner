@@ -171,7 +171,7 @@ struct MonitorView: View {
     var body: some View {
         VStack(spacing: 0) {
             PaneHeader(title: "System Monitor", subtitle: "Live CPU, memory and storage usage.",
-                       icon: "gauge.with.dots.needle.67percent", tint: .cyan)
+                       icon: "gauge.with.dots.needle.67percent", tint: Pane.monitor.tint)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 16) {

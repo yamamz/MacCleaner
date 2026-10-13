@@ -61,7 +61,7 @@ struct OptimizationView: View {
         VStack(spacing: 0) {
             PaneHeader(title: "Optimization",
                        subtitle: "Review background agents and login items that start with your Mac.",
-                       icon: "slider.horizontal.3", tint: .purple) {
+                       icon: "slider.horizontal.3", tint: Pane.optimization.tint) {
                 Button("Login Items…") { FileUtils.openLoginItemsSettings() }
                 Button { Task { await model.load() } } label: { Image(systemName: "arrow.clockwise") }
             }

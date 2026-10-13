@@ -174,7 +174,7 @@ struct JunkView: View {
                        subtitle: model.hasScanned
                            ? "Found \(FileUtils.format(model.total)) · \(FileUtils.format(model.selectedTotal)) selected"
                            : "Remove caches, logs and developer leftovers.",
-                       icon: "trash.circle.fill", tint: .pink) {
+                       icon: "trash.circle.fill", tint: Pane.junk.tint) {
                 if model.isScanning || model.isCleaning {
                     ProgressView().controlSize(.small)
                     Text(model.isCleaning ? "Cleaning…" : model.status)

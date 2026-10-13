@@ -68,7 +68,7 @@ enum FileUtils {
 /// calls get very few threads, so the work is kept flat.) Totals roll up to their parents as
 /// folders finish; `onChild` fires for each direct subfolder of the root once its total is known.
 /// Directories up to `recordDepth` levels deep are returned so callers can cache them, and any
-/// path in `known` is used as-is instead of being walked.
+/// path in `known` is used as-is instead of being walked. A cancelled run returns zero and no folders.
 private final class DiskUsage {
     private struct Node {
         let path: String
@@ -102,12 +102,16 @@ private final class DiskUsage {
             // List this level in parallel, then link the results up serially.
             let paths = level.map { nodes[$0].path }
             var listings = [(Int64, [String])](repeating: (0, []), count: level.count)
+            let workers = min(paths.count, ProcessInfo.processInfo.activeProcessorCount)
             listings.withUnsafeMutableBufferPointer { listings in
-                DispatchQueue.concurrentPerform(iterations: paths.count) { i in
-                    let fd = open(paths[i], O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-                    guard fd >= 0 else { return }
-                    defer { close(fd) }
-                    listings[i] = BulkWalker.readEntries(fd, buffer: BulkWalker.Buffer())
+                DispatchQueue.concurrentPerform(iterations: workers) { worker in
+                    let buffer = BulkWalker.Buffer() // one per worker, reused for its share of folders
+                    for i in stride(from: worker, to: paths.count, by: workers) {
+                        let fd = open(paths[i], O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                        guard fd >= 0 else { continue }
+                        listings[i] = BulkWalker.readEntries(fd, buffer: buffer)
+                        close(fd)
+                    }
                 }
             }
             var next: [Int] = []
@@ -145,7 +149,8 @@ private final class DiskUsage {
             nodes[index].size = size
             complete(index)
         }
-        return (nodes[0].size, recorded)
+        // A cancelled walk has partial totals; don't hand them out as real sizes.
+        return isCancelled() ? (0, [:]) : (nodes[0].size, recorded)
     }
 
     /// Marks a node's total as final and rolls it up into its parent. Caller holds the lock or runs serially.
@@ -154,7 +159,7 @@ private final class DiskUsage {
         while true {
             let node = nodes[index]
             if node.depth >= 1, node.depth <= recordDepth { recorded[node.path] = node.size }
-            if node.depth == 1 { onChild?(node.path, node.size) }
+            if node.depth == 1, !isCancelled() { onChild?(node.path, node.size) }
             guard node.parent >= 0 else { return }
             nodes[node.parent].size += node.size
             nodes[node.parent].pending -= 1
@@ -187,19 +192,22 @@ private final class BulkWalker {
 
     /// Total allocated size of the directory open at `fd`. Takes ownership of `fd`.
     func measureDirectory(fd: Int32, path: String, depth: Int) -> Int64 {
-        defer { close(fd) }
         directories += 1
         if directories % 256 == 0, isCancelled() { cancelled = true }
-        if cancelled { return 0 }
+        if cancelled { close(fd); return 0 }
 
         var (total, subdirectories) = BulkWalker.readEntries(fd, buffer: buffer)
+        // Close before descending: holding one descriptor per level on every thread can exceed
+        // the 256 open-file limit GUI apps get in deep trees.
+        close(fd)
         for name in subdirectories {
             if cancelled { break }
-            let child = openat(fd, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            let childPath = path + "/" + name
+            let child = open(childPath, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             guard child >= 0 else { continue }
-            let size = measureDirectory(fd: child, path: path + "/" + name, depth: depth + 1)
+            let size = measureDirectory(fd: child, path: childPath, depth: depth + 1)
             total += size
-            if depth + 1 <= recordDepth { recorded[path + "/" + name] = size }
+            if depth + 1 <= recordDepth { recorded[childPath] = size }
         }
         return total
     }

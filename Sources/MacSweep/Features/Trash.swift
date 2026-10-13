@@ -11,8 +11,11 @@ final class TrashModel: ObservableObject {
     @Published var message: String?
 
     private let trashURL = FileUtils.home.appendingPathComponent(".Trash")
+    private var refreshGeneration = 0
 
     func refresh() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
         isWorking = true
         let url = trashURL
         let (count, size, denied) = await Task.detached { () -> (Int, Int64, Bool) in
@@ -27,6 +30,8 @@ final class TrashModel: ObservableObject {
             let visible = items.filter { $0.lastPathComponent != ".DS_Store" }
             return (visible.count, visible.reduce(0) { $0 + FileUtils.size(of: $1) }, false)
         }.value
+        // Refreshes can overlap (Smart Scan, this screen, after emptying); only the latest one counts.
+        guard generation == refreshGeneration else { return }
         itemCount = count
         self.size = size
         accessDenied = denied
@@ -58,7 +63,7 @@ struct TrashView: View {
     var body: some View {
         VStack(spacing: 0) {
             PaneHeader(title: "Trash Bins", subtitle: "Reclaim the space used by files you already deleted.",
-                       icon: "trash.fill", tint: .green) {
+                       icon: "trash.fill", tint: Pane.trash.tint) {
                 if model.isWorking && !model.isEmptying {
                     ProgressView().controlSize(.small)
                     Text("Measuring…").font(.caption).foregroundStyle(.secondary)

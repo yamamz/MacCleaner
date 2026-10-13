@@ -163,7 +163,7 @@ struct UninstallerView: View {
         VStack(spacing: 0) {
             PaneHeader(title: "Uninstaller",
                        subtitle: "Remove apps completely, including their hidden support files.",
-                       icon: "xmark.app.fill", tint: .blue) {
+                       icon: "xmark.app.fill", tint: Pane.uninstaller.tint) {
                 Button { Task { await model.load() } } label: { Image(systemName: "arrow.clockwise") }
                     .help("Reload app list")
             }

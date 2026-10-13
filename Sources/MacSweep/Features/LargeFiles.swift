@@ -133,7 +133,7 @@ struct LargeFilesView: View {
                        subtitle: model.hasScanned
                            ? "\(model.visibleIndices.count) files · \(FileUtils.format(model.visibleTotal))"
                            : "Find big files hiding in your home folder.",
-                       icon: "doc.on.doc.fill", tint: .orange) {
+                       icon: "doc.on.doc.fill", tint: Pane.largeFiles.tint) {
                 if model.isScanning {
                     ProgressView().controlSize(.small)
                     Text("\(model.scannedCount.formatted()) files checked")
