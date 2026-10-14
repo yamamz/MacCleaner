@@ -4,9 +4,12 @@ import SwiftUI
 enum Pane: String, CaseIterable, Identifiable, Hashable {
     case smartScan = "Smart Scan"
     case junk = "System Junk"
+    case simulators = "Simulators"
+    case emulators = "Android Emulators"
     case largeFiles = "Large & Old Files"
     case duplicates = "Duplicates"
     case spaceLens = "Space Lens"
+    case security = "Malware & Bloatware"
     case trash = "Trash Bins"
     case uninstaller = "Uninstaller"
     case optimization = "Optimization"
@@ -19,9 +22,12 @@ enum Pane: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .smartScan: "sparkles"
         case .junk: "bubbles.and.sparkles.fill"
+        case .simulators: "iphone.gen3"
+        case .emulators: "smartphone"
         case .largeFiles: "doc.on.doc.fill"
         case .duplicates: "square.fill.on.square.fill"
         case .spaceLens: "circle.hexagongrid.fill"
+        case .security: "checkmark.shield.fill"
         case .trash: "trash.fill"
         case .uninstaller: "xmark.app.fill"
         case .optimization: "slider.horizontal.3"
@@ -35,9 +41,12 @@ enum Pane: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .smartScan: .purple
         case .junk: .pink
+        case .simulators: .mint
+        case .emulators: Color(red: 0.20, green: 0.66, blue: 0.33) // Android green
         case .largeFiles: .orange
         case .duplicates: .teal
         case .spaceLens: .indigo
+        case .security: .red
         case .trash: .green
         case .uninstaller: .blue
         case .optimization: .purple
@@ -69,6 +78,9 @@ struct MacSweepApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @AppStorage(SettingsKeys.showMenuBar) private var showMenuBar = true
     @StateObject private var junk = JunkModel()
+    @StateObject private var simulators = SimulatorsModel()
+    @StateObject private var emulators = EmulatorsModel()
+    @StateObject private var security = SecurityModel()
     @StateObject private var large = LargeFilesModel()
     @StateObject private var duplicates = DuplicatesModel()
     @StateObject private var spaceLens = SpaceLensModel()
@@ -82,6 +94,9 @@ struct MacSweepApp: App {
         Window("MacSweep", id: "main") {
             ContentView()
                 .environmentObject(junk)
+                .environmentObject(simulators)
+                .environmentObject(emulators)
+                .environmentObject(security)
                 .environmentObject(large)
                 .environmentObject(duplicates)
                 .environmentObject(spaceLens)
@@ -114,7 +129,8 @@ struct ContentView: View {
         NavigationSplitView {
             List(selection: $pane) {
                 row(.smartScan)
-                Section("Cleanup") { ForEach([Pane.junk, .largeFiles, .duplicates, .trash]) { row($0) } }
+                Section("Cleanup") { ForEach([Pane.junk, .simulators, .emulators, .largeFiles, .duplicates, .trash]) { row($0) } }
+                Section("Protection") { row(.security) }
                 Section("Storage") { row(.spaceLens) }
                 Section("Applications") { ForEach([Pane.uninstaller, .optimization]) { row($0) } }
                 Section("Performance") { ForEach([Pane.maintenance, .monitor]) { row($0) } }
@@ -126,9 +142,12 @@ struct ContentView: View {
             switch pane ?? .smartScan {
             case .smartScan: SmartScanView(pane: $pane)
             case .junk: JunkView()
+            case .simulators: SimulatorsView()
+            case .emulators: EmulatorsView()
             case .largeFiles: LargeFilesView()
             case .duplicates: DuplicatesView()
             case .spaceLens: SpaceLensView()
+            case .security: SecurityView()
             case .trash: TrashView()
             case .uninstaller: UninstallerView()
             case .optimization: OptimizationView()

@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="build/MacSweep.app"
-VERSION="1.0.0"
+VERSION="1.0.1"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 swift build -c release
 

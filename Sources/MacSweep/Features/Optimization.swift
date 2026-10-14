@@ -5,6 +5,7 @@ struct LaunchItem: Identifiable, Sendable {
     let url: URL
     let label: String
     let program: String?
+    var arguments: [String] = []
     let runAtLoad: Bool
     let isUserItem: Bool
 }
@@ -18,10 +19,12 @@ enum LaunchItemScanner {
 
     static func parse(_ url: URL, isUserItem: Bool) -> LaunchItem {
         let dict = NSDictionary(contentsOf: url) as? [String: Any] ?? [:]
-        let program = (dict["Program"] as? String) ?? (dict["ProgramArguments"] as? [String])?.first
+        let arguments = dict["ProgramArguments"] as? [String] ?? []
+        let program = (dict["Program"] as? String) ?? arguments.first
         return LaunchItem(url: url,
                           label: dict["Label"] as? String ?? url.deletingPathExtension().lastPathComponent,
                           program: program,
+                          arguments: arguments,
                           runAtLoad: dict["RunAtLoad"] as? Bool ?? false,
                           isUserItem: isUserItem)
     }

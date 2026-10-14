@@ -74,6 +74,62 @@ enum AppScanner {
     }
 }
 
+enum AppRemover {
+    /// Removes an app's leftovers, then the app bundle itself.
+    static func uninstall(_ app: AppInfo, leftovers: [CleanItem]) async -> CleanResult {
+        var result = await Task.detached { Cleaner.remove(leftovers) }.value
+
+        do {
+            if Cleaner.deletePermanently {
+                try FileManager.default.removeItem(at: app.url)
+            } else {
+                _ = try await NSWorkspace.shared.recycle([app.url])
+            }
+            result.removed += 1
+            result.freed += app.size ?? 0
+        } catch {
+            // Apps installed by the App Store or an installer are owned by root. NSWorkspace can't ask for
+            // a password, but Finder can, so let Finder move those to the Trash.
+            if let finderError = await Task.detached(operation: { trashWithFinder(app.url) }).value {
+                result.failures.append("\(app.name).app: \(error.localizedDescription) \(finderError)")
+            } else {
+                result.removed += 1
+                result.freed += app.size ?? 0
+            }
+        }
+        return result
+    }
+
+    /// Asks Finder to move an item to the Trash; Finder prompts for an administrator password when needed.
+    /// Returns nil on success, or Finder's error message.
+    static func trashWithFinder(_ url: URL) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        // The path is passed as an argument, never spliced into the script.
+        process.arguments = [
+            "-e", "on run argv",
+            "-e", "with timeout of 600 seconds",
+            "-e", "tell application \"Finder\" to delete (POSIX file (item 1 of argv) as alias)",
+            "-e", "end timeout",
+            "-e", "end run",
+            url.path,
+        ]
+        let errors = Pipe()
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = errors
+        do { try process.run() } catch { return error.localizedDescription }
+        let data = errors.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus != 0 || FileUtils.exists(url) else { return nil }
+        let message = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        if message.contains("-1743") || message.contains("Not authorized") {
+            return "Allow MacSweep to control Finder in System Settings › Privacy & Security › Automation, then try again."
+        }
+        if message.contains("-128") { return "Cancelled." }
+        return message.isEmpty ? "Finder couldn't move it to the Trash." : "Finder: \(message)"
+    }
+}
+
 @MainActor
 final class UninstallerModel: ObservableObject {
     @Published var apps: [AppInfo] = []
@@ -123,24 +179,7 @@ final class UninstallerModel: ObservableObject {
     }
 
     func uninstall(_ app: AppInfo) async {
-        let files = leftovers.filter(\.isSelected)
-        var result = await Task.detached { Cleaner.remove(files) }.value
-
-        // The bundle goes through NSWorkspace so macOS can ask for an admin password if needed.
-        let appSize = app.size ?? 0
-        do {
-            if Cleaner.deletePermanently {
-                try FileManager.default.removeItem(at: app.url)
-            } else {
-                _ = try await NSWorkspace.shared.recycle([app.url])
-            }
-            result.removed += 1
-            result.freed += appSize
-        } catch {
-            result.failures.append("\(app.name).app: \(error.localizedDescription)")
-        }
-
-        lastResult = result
+        lastResult = await AppRemover.uninstall(app, leftovers: leftovers.filter(\.isSelected))
         if !FileUtils.exists(app.url) {
             apps.removeAll { $0.id == app.id }
             selectedID = nil
