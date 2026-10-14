@@ -5,7 +5,13 @@ A native SwiftUI Mac cleaner inspired by CleanMyMac. Requires macOS 14 Sonoma or
 <img src="Resources/AppIcon-preview.png" width="128" alt="MacSweep icon">
 
 ## Install
-Download the latest `MacSweep-x.y.z.zip` from [Releases](https://github.com/yamamz/MacCleaner/releases),
+With [Homebrew](https://brew.sh):
+```bash
+brew install --cask yamamz/tap/macsweep
+```
+Update with `brew upgrade --cask macsweep`.
+
+Or download the latest `MacSweep-x.y.z.zip` from [Releases](https://github.com/yamamz/MacCleaner/releases),
 unzip it and move **MacSweep.app** to Applications.
 
 MacSweep isn't signed with an Apple Developer ID, so macOS blocks it the first time:
@@ -110,6 +116,11 @@ swift scripts/make-icon.swift
    ```bash
    git tag -a v1.0.1 -m "MacSweep 1.0.1" && git push origin main v1.0.1
    gh release create v1.0.1 build/MacSweep-1.0.1.zip --title "MacSweep 1.0.1" --notes-file notes.md
+   ```
+4. Homebrew: [yamamz/homebrew-tap](https://github.com/yamamz/homebrew-tap) checks for new releases daily
+   and opens a pull request that bumps the cask; merge it. To bump right away instead:
+   ```bash
+   brew bump-cask-pr --version 1.0.1 yamamz/tap/macsweep
    ```
 
 ## Tests
